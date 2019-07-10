@@ -458,6 +458,20 @@ const deleteSshKey = (name: string): Promise<Object> =>
     },
   );
 
+  const deleteSshKeyById = (id: number): Promise<Object> =>
+  graphqlapi.mutate(
+    `
+    ($id: Int!) {
+      deleteSshKeyById(input: {
+        id: $id
+      })
+    }
+    `,
+    {
+      name,
+    },
+  );
+
 const addProject = (
   name: string,
   customer: number,

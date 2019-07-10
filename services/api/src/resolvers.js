@@ -108,6 +108,7 @@ const {
   addSshKey,
   updateSshKey,
   deleteSshKey,
+  deleteSshKeyById,
   deleteAllSshKeys,
   removeAllSshKeysFromAllUsers,
 } = require('./resources/sshKey/resolvers');
@@ -251,6 +252,7 @@ const resolvers /* : { [string]: ResolversObj | typeof GraphQLDate } */ = {
     addSshKey,
     updateSshKey,
     deleteSshKey,
+    deleteSshKeyById,
     deleteAllSshKeys,
     removeAllSshKeysFromAllUsers,
     addUser,

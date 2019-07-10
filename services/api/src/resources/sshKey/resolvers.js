@@ -194,6 +194,25 @@ const deleteSshKey = async (
   return 'success';
 };
 
+const deleteSshKeyById = async (
+  root,
+  { input: { id } },
+  { credentials: { role, userId }, sqlClient },
+) => {
+  if (role !== 'admin') {
+    const rows = await query(sqlClient, Sql.selectSshKeyIdsByUserId(userId));
+    const sshKeyIds = R.map(R.prop('skid'), rows);
+    if (!R.contains(skid, sshKeyIds)) {
+      throw new Error('Unauthorized.');
+    }
+  }
+
+  const prep = prepare(sqlClient, 'CALL DeleteSshKeyById(:id)');
+  await query(sqlClient, prep({ name }));
+
+  return 'success';
+};
+
 const deleteAllSshKeys = async (
   root,
   args,
@@ -231,6 +250,7 @@ const Resolvers /* : ResolversObj */ = {
   addSshKey,
   updateSshKey,
   deleteSshKey,
+  deleteSshKeyById,
   deleteAllSshKeys,
   removeAllSshKeysFromAllUsers,
 };
