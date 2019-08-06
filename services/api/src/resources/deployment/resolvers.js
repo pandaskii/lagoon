@@ -6,6 +6,7 @@ const { sendToLagoonLogs } = require('@lagoon/commons/src/logs');
 const {
   createDeployTask,
   createPromoteTask,
+  createMiscTask,
 } = require('@lagoon/commons/src/tasks');
 const esClient = require('../../clients/esClient');
 const {
@@ -21,6 +22,7 @@ const {
   isPatchEmpty,
 } = require('../../util/db');
 const Sql = require('./sql');
+const Helpers = require('./helpers');
 const EVENTS = require('./events');
 const environmentHelpers = require('../environment/helpers');
 const projectSql = require('../project/sql');
@@ -346,6 +348,59 @@ const updateDeployment = async (
   pubSub.publish(EVENTS.DEPLOYMENT.UPDATED, deployment);
 
   return deployment;
+};
+
+const cancelDeployment = async (
+  root,
+  { input: { deployment: deploymentInput } },
+  {
+    credentials: {
+      role,
+      permissions: { customers, projects },
+    },
+    sqlClient,
+  },
+) => {
+  const deployment = await Helpers(sqlClient).getDeploymentByDeploymentInput(deploymentInput);
+  const environment = await environmentHelpers(sqlClient).getEnvironmentById(deployment.environment);
+  const project = await projectHelpers(sqlClient).getProjectById(
+    environment.project,
+  );
+
+  if (role !== 'admin') {
+    const rows = await query(
+      sqlClient,
+      Sql.selectPermsForEnvironment(environment.id),
+    );
+
+    if (
+      !R.contains(R.path(['0', 'pid'], rows), projects) &&
+      !R.contains(R.path(['0', 'cid'], rows), customers)
+    ) {
+      throw new Error('Unauthorized.');
+    }
+  }
+
+  const data = {
+    build: deployment,
+    environment,
+    project,
+  };
+
+  try {
+    await createMiscTask({ key: 'openshift:build:cancel', data });
+    return 'success';
+  } catch (error) {
+    sendToLagoonLogs(
+      'error',
+      '',
+      '',
+      'api:cancelDeployment',
+      { deploymentId: deployment.id },
+      `Deployment not cancelled, reason: ${error}`,
+    );
+    return `Error: ${error.message}`;
+  }
 };
 
 const deployEnvironmentLatest = async (
@@ -834,6 +889,7 @@ const Resolvers /* : ResolversObj */ = {
   addDeployment,
   deleteDeployment,
   updateDeployment,
+  cancelDeployment,
   deployEnvironmentLatest,
   deployEnvironmentBranch,
   deployEnvironmentPullrequest,
